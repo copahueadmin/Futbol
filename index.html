@@ -1,0 +1,1462 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Calculadora del Descenso</title>
+<style>
+  :root{
+    --bg:#0b1712; --panel:#122a20; --panel2:#0f2119; --line:#1f3d2d;
+    --text:#eaf3ec; --muted:#8fae9c; --accent:#3ddc84; --danger:#ff5c5c;
+    --danger-bg:#3a1414; --warn:#ffcc4d;
+  }
+  *{box-sizing:border-box; -webkit-tap-highlight-color:transparent;}
+  body{
+    margin:0; background:var(--bg); color:var(--text);
+    font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
+    padding-bottom:64px;
+  }
+  header{
+    padding:14px 14px 10px; position:sticky; top:0; background:var(--bg);
+    z-index:10; border-bottom:1px solid var(--line);
+  }
+  h1{font-size:16.5px; margin:0 0 2px; display:flex; align-items:center; gap:8px;}
+  .sub{font-size:11.5px; color:var(--muted); margin:0;}
+  .progress-wrap{margin-top:10px; background:var(--panel2); border-radius:8px; height:6px; overflow:hidden;}
+  .progress-bar{height:100%; background:var(--accent); width:0%; transition:width .2s;}
+  .progress-label{font-size:10.5px; color:var(--muted); margin-top:4px; text-align:right;}
+  .tabs{display:flex; gap:6px; margin-top:10px;}
+  .tab{
+    flex:1; text-align:center; padding:9px 4px; border-radius:8px; font-size:12.5px;
+    background:var(--panel2); color:var(--muted); cursor:pointer; border:1px solid var(--line);
+  }
+  .tab.active{background:var(--accent); color:#04150c; font-weight:700; border-color:var(--accent);}
+  main{padding:10px 10px 0;}
+  .panel{display:none;}
+  .panel.active{display:block;}
+
+  .quickbar{
+    display:flex; gap:6px; margin-bottom:10px; overflow-x:auto; padding-bottom:2px;
+  }
+  .quickbtn{
+    white-space:nowrap; font-size:11.5px; padding:7px 10px; border-radius:20px;
+    background:var(--panel2); color:var(--muted); border:1px solid var(--line);
+  }
+
+  .round{margin-bottom:12px; border:1px solid var(--line); border-radius:10px; overflow:hidden;}
+  .round-title{
+    display:flex; justify-content:space-between; align-items:center;
+    background:var(--panel2); padding:7px 10px; font-size:12px; color:var(--muted);
+    font-weight:600; letter-spacing:.02em;
+  }
+  .round-title .done{font-size:10px; color:var(--accent);}
+  .match{
+    display:flex; align-items:center; gap:4px; padding:9px 8px;
+    border-top:1px solid var(--line); background:var(--panel); font-size:12.5px;
+  }
+  .team{flex:1; min-width:0;}
+  .team.home{text-align:right;}
+  .team-name{white-space:nowrap; overflow:hidden; text-overflow:ellipsis; display:block;}
+  .tracked{color:var(--accent); font-weight:700;}
+  .rbtns{display:flex; gap:3px; flex-shrink:0;}
+  .rbtn{
+    width:38px; height:34px; border-radius:7px; background:#0a1a12; color:var(--muted);
+    border:1px solid var(--line); font-size:12px; font-weight:700;
+    display:inline-flex; align-items:center; justify-content:center; text-align:center;
+    box-sizing:border-box; padding:0; line-height:1;
+  }
+  .rbtn.sel-h{background:var(--accent); color:#04150c; border-color:var(--accent);}
+  .rbtn.sel-e{background:var(--warn); color:#251a00; border-color:var(--warn);}
+  .rbtn.sel-a{background:#6ab4ff; color:#001a35; border-color:#6ab4ff;}
+
+  /* Llamado a la acción: partidos pendientes de cargar */
+  .match.pending{
+    border-left:3px solid var(--accent);
+    background:#0f2a1c;
+  }
+  .match.pending .rbtn{
+    border-color:var(--accent); background:#0e2318; color:var(--accent);
+    box-shadow:0 0 0 1px rgba(61,220,132,0.15);
+  }
+  .match.pending .team-name{color:var(--text);}
+  .match.pending .team-name.tracked{color:var(--accent);}
+  .match.answered{
+    border-left:3px solid transparent;
+  }
+  .clear-one{
+    display:none; flex-shrink:0; width:22px; height:22px; border-radius:50%;
+    background:#2a1414; color:#ff8080; border:1px solid #4a2020; font-size:12px;
+    line-height:1; padding:0; margin-left:4px;
+  }
+  .match.answered .clear-one{display:inline-flex; align-items:center; justify-content:center;}
+  .confirm-one{
+    display:none; flex-shrink:0; width:22px; height:22px; border-radius:50%;
+    background:#0f2119; color:var(--accent); border:1px solid var(--accent); font-size:12px;
+    line-height:1; padding:0; margin-left:4px;
+  }
+  body.admin-mode .match.answered .confirm-one{display:inline-flex; align-items:center; justify-content:center;}
+  .admin-badge{
+    display:none; position:fixed; top:10px; right:10px; z-index:999;
+    background:var(--accent); color:#04150c; font-size:11px; font-weight:800;
+    padding:6px 12px; border-radius:20px; box-shadow:0 2px 8px rgba(0,0,0,0.4);
+  }
+  body.admin-mode .admin-badge{display:block;}
+
+  .confirm-overlay{
+    display:none; position:fixed; inset:0; background:rgba(0,0,0,0.6);
+    z-index:1000; align-items:center; justify-content:center; padding:20px;
+  }
+  .confirm-overlay.show{display:flex;}
+  .confirm-card{
+    background:var(--panel2); border:1px solid var(--line); border-radius:14px;
+    padding:20px; max-width:340px; width:100%;
+  }
+  .confirm-title{margin:0 0 8px; font-size:15px; font-weight:800; color:var(--text);}
+  .confirm-sub{margin:0 0 18px; font-size:12.5px; color:var(--muted); line-height:1.5;}
+  .confirm-actions{display:flex; gap:8px;}
+  .confirm-btn{
+    flex:1; padding:11px; border-radius:9px; font-weight:700; font-size:13px; border:none;
+  }
+  .confirm-cancel{background:#0a1a12; color:var(--text); border:1px solid var(--line);}
+  .confirm-ok{background:var(--danger); color:#2a0505;}
+
+  table{width:100%; border-collapse:collapse; font-size:12.5px;}
+  th,td{padding:7px 5px; text-align:center; border-bottom:1px solid var(--line);}
+  th{color:var(--muted); font-weight:600; font-size:11px;}
+  td.name{text-align:left; white-space:nowrap;}
+  tr.relegation{background:var(--danger-bg);}
+  tr.relegation td.pos{color:var(--danger); font-weight:800;}
+  tr.playoff-desc{background:#3a2f14;}
+  tr.playoff-desc td.pos{color:var(--warn); font-weight:800;}
+  tr.already-relegated td.name{color:var(--muted);}
+  .tag-info{
+    font-size:9.5px; color:var(--warn); background:#2a2410; padding:1px 5px;
+    border-radius:4px; margin-left:5px; white-space:nowrap;
+  }
+  .legend{display:flex; gap:14px; font-size:11px; color:var(--muted); margin:8px 2px 4px; flex-wrap:wrap;}
+  .dot{display:inline-block; width:9px; height:9px; border-radius:2px; margin-right:5px; vertical-align:middle;}
+  .dot.red{background:var(--danger);}
+  .dot.yellow{background:var(--warn);}
+
+  .note{font-size:11.5px; color:var(--muted); margin:10px 2px 4px; line-height:1.5;}
+
+  .s2-section-title{
+    font-size:12.5px; font-weight:700; color:var(--text); margin:16px 2px 8px;
+    padding-bottom:5px; border-bottom:1px solid var(--line);
+  }
+  .qtyrow{
+    display:flex; align-items:center; gap:6px; padding:8px 8px; border-top:1px solid var(--line);
+    background:var(--panel); font-size:12.5px;
+  }
+  .qtyrow:first-child{border-top:none; border-radius:10px 10px 0 0;}
+  .qtyrow:last-child{border-radius:0 0 10px 10px;}
+  .qtyrow-name{flex:1.3; min-width:0;}
+  .qtyrow-name .team-name{font-weight:700;}
+  .qtyrow-name .ext-count{display:block; font-size:10px; color:var(--muted); font-weight:400;}
+  .qtyfields{display:flex; gap:5px; align-items:center;}
+  .qtyfield{display:flex; flex-direction:column; align-items:center; gap:2px;}
+  .qtyfield label{font-size:9px; color:var(--muted);}
+  .qtyinput{
+    width:38px; text-align:center; background:#0a1a12; border:1px solid var(--line);
+    color:var(--text); border-radius:6px; padding:5px 0; font-size:13px;
+  }
+  .qtysum{font-size:10.5px; width:56px; text-align:center; font-weight:700; color:var(--muted);}
+  .qtysum.ok{color:var(--accent);}
+  .qtysum.warn{color:var(--warn);}
+  .qtysum.err{color:var(--danger);}
+  .qtysum-col{display:flex; flex-direction:column; align-items:center; gap:3px;}
+  .qtypts{font-size:9.5px; width:56px; text-align:center; font-weight:700; padding:2px 0; border-radius:6px;}
+  .qtypts.pts-high{color:var(--accent); background:rgba(61,220,132,0.12);}
+  .qtypts.pts-mid{color:var(--warn); background:rgba(230,180,60,0.12);}
+  .qtypts.pts-low{color:#ff8080; background:rgba(255,90,90,0.1);}
+  .qty-wrap{border:1px solid var(--line); border-radius:10px; overflow:hidden;}
+
+  .qps-chip-count{
+    font-size:11px; color:var(--muted); align-self:center; margin-left:4px;
+  }
+  .qps-chip-wrap{
+    display:flex; flex-wrap:wrap; gap:8px; margin-top:2px;
+  }
+  .qps-chip{
+    background:var(--panel); border:1.5px solid var(--line); color:var(--muted);
+    font-size:12.5px; font-weight:700; padding:9px 13px; border-radius:20px;
+  }
+  .qps-chip.selected{
+    background:rgba(61,220,132,0.14); border-color:var(--accent); color:var(--accent);
+  }
+  .qps-chip:active{transform:scale(0.96);}
+
+  .mode-select{
+    min-height:100vh; display:flex; align-items:center; justify-content:center; padding:24px 16px;
+  }
+  .mode-select-inner{width:100%; max-width:420px;}
+  .mode-select-title{font-size:20px; color:var(--text); text-align:center; margin:0 0 6px;}
+  .mode-select-sub{font-size:13px; color:var(--muted); text-align:center; margin:0 0 24px;}
+  .mode-select-info{
+    font-size:11.5px; color:var(--muted); text-align:left; line-height:1.6;
+    background:var(--panel); border:1px solid var(--line); border-radius:10px;
+    padding:12px 14px; margin:0 0 22px;
+  }
+  .mode-select-info p{margin:0 0 8px;}
+  .mode-select-info p:last-child{margin-bottom:0;}
+  .mode-card{
+    display:block; width:100%; text-align:left; background:var(--panel);
+    border:1px solid var(--line); border-radius:12px; padding:16px; margin-bottom:12px;
+  }
+  .mode-card:active{background:var(--panel2);}
+  .mode-card-title{display:block; font-size:15px; font-weight:800; color:var(--accent); margin-bottom:6px;}
+  .mode-card-desc{display:block; font-size:12px; color:var(--muted); line-height:1.5;}
+
+  .mode-switch-link{
+    display:inline-flex; align-items:center; gap:6px;
+    background:var(--panel2); border:1px solid var(--accent); color:var(--accent);
+    font-size:12.5px; font-weight:700; padding:8px 14px; border-radius:20px;
+    margin:8px 0 4px;
+  }
+  .mode-switch-link:active{background:var(--accent); color:#04150c;}
+
+  .played-row{
+    display:flex; align-items:center; gap:6px; padding:8px 10px;
+    border-top:1px solid var(--line); background:#0d1f16; font-size:12.5px;
+  }
+  .played-row:first-child{border-top:none;}
+  .played-row .team{flex:1; min-width:0;}
+  .played-row .team.home{text-align:right;}
+  .played-row .score{
+    flex-shrink:0; min-width:52px; text-align:center; font-weight:800; font-size:13px;
+    color:var(--text); background:#0a1a12; border-radius:6px; padding:4px 6px;
+  }
+  .played-row .fecha-tag{
+    font-size:9px; color:var(--muted); flex-shrink:0; width:34px; text-align:center;
+  }
+
+  details summary{list-style:none;}
+  details summary::-webkit-details-marker{display:none;}
+  details[open] summary::before{content:'▾ ';}
+  details:not([open]) summary::before{content:'▸ ';}
+
+  .team-detail{margin-bottom:10px; border:1px solid var(--line); border-radius:10px; overflow:hidden;}
+  .team-detail summary{
+    cursor:pointer; padding:10px 12px; background:var(--panel2); font-size:13px; font-weight:700;
+    display:flex; justify-content:space-between; align-items:center;
+  }
+  .team-detail summary .td-count{font-size:11px; font-weight:400; color:var(--muted);}
+  .td-row{
+    display:flex; align-items:center; gap:8px; padding:8px 10px; font-size:12.5px;
+    border-top:1px solid var(--line); background:var(--panel);
+  }
+  .td-row .td-jornada{width:34px; flex-shrink:0; color:var(--muted); font-size:10.5px;}
+  .td-row .td-rival{flex:1; min-width:0; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;}
+  .td-row .td-venue{font-size:10px; color:var(--muted); flex-shrink:0; width:20px;}
+  .td-row .td-result{
+    flex-shrink:0; font-size:11px; font-weight:800; padding:3px 8px; border-radius:6px;
+    background:#0a1a12; color:var(--muted);
+  }
+  .td-row .td-result.g{background:var(--accent); color:#04150c;}
+  .td-row .td-result.e{background:var(--warn); color:#251a00;}
+  .td-row .td-result.p{background:#6a3030; color:#ffd0d0;}
+  .match.played{background:#111a15; opacity:0.7;}
+  .match.played .rbtn{opacity:1;}
+  .match.played .rbtn.sel-h,
+  .match.played .rbtn.sel-e,
+  .match.played .rbtn.sel-a{
+    background:#2a2f2c; color:#9aa8a0; border-color:#3a423d;
+  }
+  .match.played .team-name,
+  .match.played .team-name.tracked{color:var(--muted); font-weight:600;}
+  .actionbar{
+    position:sticky; bottom:0; background:var(--bg); border-top:1px solid var(--line);
+    padding:10px 12px; display:flex; gap:8px; margin-top:14px;
+  }
+  button.calc{
+    flex:1; background:var(--accent); color:#04150c; border:none; border-radius:9px;
+    padding:12px; font-weight:800; font-size:14px; transition:background .15s, transform .15s;
+  }
+  button.calc.done{
+    background:#1fae5c; transform:scale(0.97);
+  }
+  button.reset{
+    background:var(--panel2); color:var(--text); border:1px solid var(--line); border-radius:9px;
+    padding:12px 14px; font-size:13px;
+  }
+</style>
+</head>
+<body>
+<div class="admin-badge">🔓 Modo administrador</div>
+
+<div id="modeSelect" class="mode-select">
+  <div class="mode-select-inner">
+    <h1 class="mode-select-title">⚽ Calculadora del Descenso</h1>
+    <div class="mode-select-info">
+      <p>Esta app está diseñada para analizar y pronosticar los posibles descensos de la Liga Profesional Argentina (AFA).</p>
+      <p>Al inicio del torneo se consideran los 10 últimos equipos de la Tabla Anual y los 10 últimos equipos de la Tabla de Promedios.</p>
+    </div>
+
+    <p class="mode-select-sub">Elegí cómo querés simular los partidos pendientes</p>
+
+    <button class="mode-card" id="btnModeQPS">
+      <span class="mode-card-title">🤔 ¿Qué pasa si...?</span>
+      <span class="mode-card-desc">Cargás directamente cuántos puntos sumaría cada equipo en lo que le queda, sin ir partido por partido.</span>
+    </button>
+
+    <button class="mode-card" id="btnModePAP">
+      <span class="mode-card-title">📋 Partido a partido</span>
+      <span class="mode-card-desc">Pronosticás Local / Empate / Visitante en cada uno de los partidos pendientes.</span>
+    </button>
+  </div>
+</div>
+
+<div id="modePartidoAPartido" style="display:none;">
+<header>
+  <h1 id="papTitle" style="cursor:default; -webkit-user-select:none; user-select:none;">⚽ Calculadora del Descenso</h1>
+  <p class="sub">Liga Profesional Argentina (AFA) · Tocá L / E / V en cada partido para pronosticar</p>
+  <button class="mode-switch-link" data-back-to-select>🔀 Cambiar de modo</button>
+  <div class="progress-wrap"><div class="progress-bar" id="progBar"></div></div>
+  <div class="progress-label" id="progLabel">0 / 0 cargados</div>
+  <div class="tabs">
+    <div class="tab active" data-tab="partidos">Partidos</div>
+    <div class="tab" data-tab="resumen">Resumen</div>
+  </div>
+</header>
+
+<main>
+  <div class="panel active" id="panel-partidos">
+    <div class="s2-section-title" style="margin-top:0;">Elegí los equipos a considerar</div>
+    <p class="note">Tocá un equipo para sumarlo o sacarlo. Solo los que queden marcados se calculan y aparecen en los partidos y en las tablas.</p>
+    <div class="quickbar">
+      <button class="quickbtn" id="papChipAll">✔ Todos</button>
+      <button class="quickbtn" id="papChipNone">✕ Ninguno</button>
+      <span class="qps-chip-count" id="papChipCount"></span>
+    </div>
+    <div class="qps-chip-wrap" id="papTeamChips" style="margin-bottom:16px;"></div>
+
+    <details class="round" id="jugadosDetails">
+      <summary class="round-title" style="cursor:pointer; list-style:none; flex-direction:column; align-items:flex-start; gap:2px;">
+        <span style="font-size:14px; font-weight:800; color:var(--text);">Ya jugados — tocá para ver/ocultar</span>
+        <span style="font-size:10.5px; font-weight:400; color:var(--muted);">Fecha 1, 2 y 3</span>
+      </summary>
+
+      <div class="round-title" style="border-top:1px solid var(--line);">Fecha 1</div>
+      <div class="match played" data-teams="banfield"><div class="team home"><span class="team-name">Huracán</span></div><div class="rbtns"><span class="rbtn sel-h">L</span><span class="rbtn">E</span><span class="rbtn">V</span></div><div class="team away"><span class="team-name tracked">Banfield</span></div></div>
+      <div class="match played" data-teams="erc,tigre"><div class="team home"><span class="team-name tracked">Estudiantes RC</span></div><div class="rbtns"><span class="rbtn sel-h">L</span><span class="rbtn">E</span><span class="rbtn">V</span></div><div class="team away"><span class="team-name tracked">Tigre</span></div></div>
+      <div class="match played" data-teams="sarmiento"><div class="team home"><span class="team-name tracked">Sarmiento</span></div><div class="rbtns"><span class="rbtn">L</span><span class="rbtn">E</span><span class="rbtn sel-a">V</span></div><div class="team away"><span class="team-name">Argentinos JRS</span></div></div>
+      <div class="match played" data-teams="newells"><div class="team home"><span class="team-name tracked">Newell's</span></div><div class="rbtns"><span class="rbtn sel-h">L</span><span class="rbtn">E</span><span class="rbtn">V</span></div><div class="team away"><span class="team-name">Talleres</span></div></div>
+      <div class="match played" data-teams="platense"><div class="team home"><span class="team-name tracked">Platense</span></div><div class="rbtns"><span class="rbtn">L</span><span class="rbtn sel-e">E</span><span class="rbtn">V</span></div><div class="team away"><span class="team-name">Unión</span></div></div>
+      <div class="match played" data-teams="ccordoba"><div class="team home"><span class="team-name">Gimnasia (M)</span></div><div class="rbtns"><span class="rbtn sel-h">L</span><span class="rbtn">E</span><span class="rbtn">V</span></div><div class="team away"><span class="team-name tracked">Central Córdoba</span></div></div>
+      <div class="match played" data-teams="atucuman"><div class="team home"><span class="team-name tracked">Atl. Tucumán</span></div><div class="rbtns"><span class="rbtn">L</span><span class="rbtn sel-e">E</span><span class="rbtn">V</span></div><div class="team away"><span class="team-name">Independ. Rivadavia</span></div></div>
+      <div class="match played" data-teams="riestra"><div class="team home"><span class="team-name tracked">Riestra</span></div><div class="rbtns"><span class="rbtn sel-h">L</span><span class="rbtn">E</span><span class="rbtn">V</span></div><div class="team away"><span class="team-name">Boca</span></div></div>
+      <div class="match played" data-teams="aldosivi"><div class="team home"><span class="team-name">Defensa y Justicia</span></div><div class="rbtns"><span class="rbtn">L</span><span class="rbtn sel-e">E</span><span class="rbtn">V</span></div><div class="team away"><span class="team-name tracked">Aldosivi</span></div></div>
+      <div class="match played" data-teams="instituto"><div class="team home"><span class="team-name">Vélez</span></div><div class="rbtns"><span class="rbtn sel-h">L</span><span class="rbtn">E</span><span class="rbtn">V</span></div><div class="team away"><span class="team-name tracked">Instituto</span></div></div>
+
+      <div class="round-title" style="border-top:1px solid var(--line);">Fecha 2</div>
+      <div class="match played" data-teams="banfield,sarmiento"><div class="team home"><span class="team-name tracked">Banfield</span></div><div class="rbtns"><span class="rbtn sel-h">L</span><span class="rbtn">E</span><span class="rbtn">V</span></div><div class="team away"><span class="team-name tracked">Sarmiento</span></div></div>
+      <div class="match played" data-teams="erc"><div class="team home"><span class="team-name">Argentinos JRS</span></div><div class="rbtns"><span class="rbtn sel-h">L</span><span class="rbtn">E</span><span class="rbtn">V</span></div><div class="team away"><span class="team-name tracked">Estudiantes RC</span></div></div>
+      <div class="match played" data-teams="aldosivi"><div class="team home"><span class="team-name">Barracas</span></div><div class="rbtns"><span class="rbtn sel-h">L</span><span class="rbtn">E</span><span class="rbtn">V</span></div><div class="team away"><span class="team-name tracked">Aldosivi</span></div></div>
+      <div class="match played" data-teams="riestra"><div class="team home"><span class="team-name">Defensa y Justicia</span></div><div class="rbtns"><span class="rbtn sel-h">L</span><span class="rbtn">E</span><span class="rbtn">V</span></div><div class="team away"><span class="team-name tracked">Riestra</span></div></div>
+      <div class="match played" data-teams="instituto,platense"><div class="team home"><span class="team-name tracked">Instituto</span></div><div class="rbtns"><span class="rbtn sel-h">L</span><span class="rbtn">E</span><span class="rbtn">V</span></div><div class="team away"><span class="team-name tracked">Platense</span></div></div>
+
+      <div class="match played" data-teams="newells"><div class="team home"><span class="team-name">Independiente</span></div><div class="rbtns"><span class="rbtn sel-h">L</span><span class="rbtn">E</span><span class="rbtn">V</span></div><div class="team away"><span class="team-name tracked">Newell's</span></div></div>
+      <div class="match played" data-teams="ccordoba,atucuman"><div class="team home"><span class="team-name tracked">Central Córdoba</span></div><div class="rbtns"><span class="rbtn">L</span><span class="rbtn">E</span><span class="rbtn sel-a">V</span></div><div class="team away"><span class="team-name tracked">Atl. Tucumán</span></div></div>
+
+      <div class="round-title" style="border-top:1px solid var(--line);">Fecha 3</div>
+      <div class="match played" data-teams="erc,banfield"><div class="team home"><span class="team-name tracked">Estudiantes RC</span></div><div class="rbtns"><span class="rbtn">L</span><span class="rbtn sel-e">E</span><span class="rbtn">V</span></div><div class="team away"><span class="team-name tracked">Banfield</span></div></div>
+
+      <div class="match played" data-teams="tigre"><div class="team home"><span class="team-name">Racing</span></div><div class="rbtns"><span class="rbtn">L</span><span class="rbtn">E</span><span class="rbtn sel-a">V</span></div><div class="team away"><span class="team-name tracked">Tigre</span></div></div>
+
+      <div class="match played" data-teams="riestra"><div class="team home"><span class="team-name tracked">Riestra</span></div><div class="rbtns"><span class="rbtn">L</span><span class="rbtn">E</span><span class="rbtn sel-a">V</span></div><div class="team away"><span class="team-name">Barracas</span></div></div>
+      <div class="match played" data-teams="aldosivi"><div class="team home"><span class="team-name tracked">Aldosivi</span></div><div class="rbtns"><span class="rbtn">L</span><span class="rbtn">E</span><span class="rbtn sel-a">V</span></div><div class="team away"><span class="team-name">Gimnasia LP</span></div></div>
+      <div class="match played" data-teams="newells"><div class="team home"><span class="team-name tracked">Newell's</span></div><div class="rbtns"><span class="rbtn">L</span><span class="rbtn sel-e">E</span><span class="rbtn">V</span></div><div class="team away"><span class="team-name">Boca</span></div></div>
+
+      <div id="confirmedNowList"></div>
+      <p class="note" style="padding:0 8px 8px;">Estos 22 resultados ya se jugaron y están incluidos en los puntos de base de cada equipo (arriba de las tablas). No se pueden modificar acá; si hay algún resultado que cambió, avisame y lo corrijo.</p>
+    </details>
+
+    <p class="note">Tocá <b>L</b> (gana local), <b>E</b> (empate) o <b>V</b> (gana visitante) para pronosticar. Nombre en <span class="tracked">verde</span> = equipo bajo seguimiento. Cuando un partido <b>ya se jugó de verdad</b>, cargá su resultado real y tocá el botón verde <b>✓</b> para confirmarlo: pasa a "Ya jugados" (grisado) y sus puntos quedan sumados en las tablas.</p>
+    <div id="rounds"></div>
+    <button class="quickbtn" id="qbBorrar" style="width:100%; margin-top:14px; padding:12px;">🗑️ Borrar Todos Resultados Cargados</button>
+  </div>
+
+  <div class="panel" id="panel-resumen">
+    <p class="note">Ganados, Empatados y Perdidos pronosticados para cada equipo, según los partidos que ya cargaste.</p>
+    <table id="tabla-resumen"><thead>
+      <tr><th class="name">Equipo</th><th>Pts</th><th>PJ</th><th>G</th><th>E</th><th>P</th></tr>
+    </thead><tbody></tbody></table>
+    <p class="note">Pts = puntos sumados según lo pronosticado (3 por partido ganado, 1 por empate). PJ = partidos pronosticados hasta ahora sobre el total pendiente de cada equipo.</p>
+
+    <div class="s2-section-title">Detalle por equipo</div>
+    <p class="note">Tocá un equipo para ver partido por partido qué pronosticaste.</p>
+    <div id="resumen-detalle"></div>
+  </div>
+</main>
+
+<div class="actionbar">
+  <button class="reset" id="btnReset">Borrar</button>
+  <button class="calc" id="btnCalc">Calcular tablas ▸</button>
+</div>
+
+<div style="padding:0 12px 20px;">
+  <div class="s2-section-title" style="margin-top:8px;">Tabla Anual</div>
+  <div class="legend"><span><span class="dot red"></span>Desciende por esta tabla</span></div>
+  <table id="tabla-anual"><thead>
+    <tr><th>#</th><th class="name">Equipo</th><th>Pts</th><th>PJ</th></tr>
+  </thead><tbody></tbody></table>
+  <p class="note">Primero desciende el último de Promedios. Si ese mismo equipo también es el último de la Tabla Anual, el segundo descenso pasa al anteúltimo de esta tabla (marcado en rojo). Solo se cuentan puntos de Apertura + Clausura, sin playoffs.</p>
+
+  <div class="s2-section-title">Tabla de Promedios</div>
+  <div class="legend"><span><span class="dot red"></span>Desciende directo (último - coeficiente)</span></div>
+  <table id="tabla-promedios"><thead>
+    <tr><th>#</th><th class="name">Equipo</th><th>Prom.</th><th>Pts</th><th>PJ</th></tr>
+  </thead><tbody></tbody></table>
+  <p class="note">El coeficiente de promedios = puntos acumulados (últimas temporadas) ÷ partidos jugados en ese período. Desciende el equipo con el promedio más bajo al cierre del torneo.</p>
+</div>
+</div><!-- /modePartidoAPartido -->
+
+<div id="modeQuePasaSi" style="display:none;">
+<header>
+  <h1>⚽ Calculadora del Descenso</h1>
+  <p class="sub">Modo "¿Qué pasa si...?" — cargá puntos totales por equipo</p>
+  <button class="mode-switch-link" data-back-to-select>🔀 Cambiar de modo</button>
+</header>
+
+<main>
+  <div class="panel active" id="panel-qps-carga">
+    <div class="s2-section-title" style="margin-top:0;">1) Elegí los equipos a evaluar</div>
+    <p class="note">Tocá un equipo para sumarlo o sacarlo de la simulación. Solo los que queden marcados se calculan y aparecen en las tablas.</p>
+    <div class="quickbar">
+      <button class="quickbtn" id="qpsChipAll">✔ Todos</button>
+      <button class="quickbtn" id="qpsChipNone">✕ Ninguno</button>
+      <span class="qps-chip-count" id="qpsChipCount"></span>
+    </div>
+    <div class="qps-chip-wrap" id="qpsTeamChips"></div>
+
+    <div class="s2-section-title">2) Cargá Ganados / Empatados / Perdidos</div>
+    <p class="note">Para cada equipo elegido, cargá cuántos partidos <b>Gana</b>, <b>Empata</b> y <b>Pierde</b> de los que le quedan. El contador de la derecha te avisa si te pasaste del total disponible. Los cruces directos entre los equipos elegidos se resuelven automáticamente para que sean coherentes entre sí (si uno gana, el rival de ese cruce pierde).</p>
+    <div class="qty-wrap" id="qpsInputs"></div>
+    <div class="actionbar" style="position:static; margin-top:16px; border-top:none;">
+      <button class="calc" id="btnCalcQPS">Calcular tablas ▸</button>
+    </div>
+    <p class="note" id="qpsAjusteNote" style="display:none;"></p>
+
+    <div class="s2-section-title">Tabla Anual</div>
+    <div class="legend"><span><span class="dot red"></span>Desciende por esta tabla</span></div>
+    <table id="tabla-anual-qps"><thead>
+      <tr><th>#</th><th class="name">Equipo</th><th>Pts</th><th>PJ</th></tr>
+    </thead><tbody></tbody></table>
+    <p class="note">Mismo criterio de descenso: primero el último de Promedios; si coincide con el último de la Anual, en esta desciende el anteúltimo.</p>
+
+    <div class="s2-section-title">Tabla de Promedios</div>
+    <div class="legend"><span><span class="dot red"></span>Desciende directo (último - coeficiente)</span></div>
+    <table id="tabla-promedios-qps"><thead>
+      <tr><th>#</th><th class="name">Equipo</th><th>Prom.</th><th>Pts</th><th>PJ</th></tr>
+    </thead><tbody></tbody></table>
+  </div>
+</main>
+</div><!-- /modeQuePasaSi -->
+
+<div id="confirmOverlay" class="confirm-overlay">
+  <div class="confirm-card">
+    <p class="confirm-title" id="confirmTitle">¿Está seguro que desea borrar todos los resultados?</p>
+    <p class="confirm-sub" id="confirmSubDefault">Esta acción no se puede deshacer.</p>
+    <div class="confirm-actions">
+      <button class="confirm-btn confirm-cancel" id="btnConfirmCancel">Cancelar</button>
+      <button class="confirm-btn confirm-ok" id="btnConfirmOk">Sí, borrar todo</button>
+    </div>
+  </div>
+</div>
+
+<script>
+const TEAMS = {
+  banfield:   {name:"Banfield"},
+  tigre:      {name:"Tigre"},
+  sarmiento:  {name:"Sarmiento"},
+  newells:    {name:"Newell's"},
+  platense:   {name:"Platense"},
+  ccordoba:   {name:"Central Córdoba"},
+  atucuman:   {name:"Atl. Tucumán"},
+  riestra:    {name:"Riestra"},
+  aldosivi:   {name:"Aldosivi"},
+  erc:        {name:"Estudiantes RC"},
+  instituto:  {name:"Instituto"}
+};
+
+const ANUAL_BASE = {
+  banfield:{pts:22,pj:19}, tigre:{pts:23,pj:18}, sarmiento:{pts:19,pj:18},
+  newells:{pts:19,pj:19}, platense:{pts:17,pj:18}, ccordoba:{pts:16,pj:18},
+  atucuman:{pts:18,pj:18}, riestra:{pts:14,pj:19}, aldosivi:{pts:9,pj:19},
+  erc:{pts:9,pj:19}
+};
+const PROM_BASE = {
+  platense:{pts:109,pj:91}, instituto:{pts:111,pj:91}, tigre:{pts:111,pj:91},
+  newells:{pts:101,pj:92}, ccordoba:{pts:100,pj:91}, atucuman:{pts:102,pj:91},
+  banfield:{pts:98,pj:92}, sarmiento:{pts:89,pj:91}, aldosivi:{pts:42,pj:51},
+  erc:{pts:9,pj:19}
+};
+
+const MATCHES = [
+ {r:2, hId:'tigre', hN:'Tigre', aId:null, aN:'Belgrano'},
+
+ {r:3, hId:null, hN:'Lanús', aId:'instituto', aN:'Instituto'},
+ {r:3, hId:'sarmiento', hN:'Sarmiento', aId:null, aN:'Independ. Rivadavia'},
+ {r:3, hId:'platense', hN:'Platense', aId:null, aN:'Talleres'},
+ {r:3, hId:'ccordoba', hN:'Central Córdoba', aId:null, aN:'San Lorenzo'},
+ {r:3, hId:null, hN:'Huracán', aId:'atucuman', aN:'Atl. Tucumán'},
+
+ {r:4, hId:null, hN:'Unión', aId:'ccordoba', aN:'Central Córdoba'},
+ {r:4, hId:null, hN:'Defensa y Justicia', aId:'newells', aN:"Newell's"},
+ {r:4, hId:'atucuman', hN:'Atl. Tucumán', aId:'sarmiento', aN:'Sarmiento'},
+ {r:4, hId:'banfield', hN:'Banfield', aId:null, aN:'Belgrano'},
+ {r:4, hId:null, hN:'Rosario Central', aId:'aldosivi', aN:'Aldosivi'},
+ {r:4, hId:'tigre', hN:'Tigre', aId:null, aN:'River Plate'},
+ {r:4, hId:null, hN:'Independiente', aId:'platense', aN:'Platense'},
+ {r:4, hId:null, hN:'Independ. Rivadavia', aId:'erc', aN:'Estudiantes RC'},
+ {r:4, hId:'riestra', hN:'Riestra', aId:null, aN:'Estudiantes LP'},
+ {r:4, hId:'instituto', hN:'Instituto', aId:null, aN:'Gimnasia (M)'},
+
+ {r:5, hId:'platense', hN:'Platense', aId:null, aN:'Boca'},
+ {r:5, hId:'sarmiento', hN:'Sarmiento', aId:null, aN:'Huracán'},
+ {r:5, hId:'aldosivi', hN:'Aldosivi', aId:'tigre', aN:'Tigre'},
+ {r:5, hId:'newells', hN:"Newell's", aId:'riestra', aN:'Riestra'},
+ {r:5, hId:null, hN:'Racing', aId:'banfield', aN:'Banfield'},
+ {r:5, hId:'erc', hN:'Estudiantes RC', aId:'atucuman', aN:'Atl. Tucumán'},
+ {r:5, hId:'ccordoba', hN:'Central Córdoba', aId:'instituto', aN:'Instituto'},
+
+ {r:6, hId:'newells', hN:"Newell's", aId:'banfield', aN:'Banfield'},
+ {r:6, hId:'tigre', hN:'Tigre', aId:'ccordoba', aN:'Central Córdoba'},
+ {r:6, hId:'sarmiento', hN:'Sarmiento', aId:null, aN:'Estudiantes LP'},
+ {r:6, hId:'aldosivi', hN:'Aldosivi', aId:null, aN:'Unión'},
+ {r:6, hId:'erc', hN:'Estudiantes RC', aId:null, aN:'San Lorenzo'},
+ {r:6, hId:null, hN:'Huracán', aId:'riestra', aN:'Riestra'},
+ {r:6, hId:null, hN:'Barracas', aId:'platense', aN:'Platense'},
+ {r:6, hId:'atucuman', hN:'Atl. Tucumán', aId:'instituto', aN:'Instituto'},
+
+ {r:7, hId:'banfield', hN:'Banfield', aId:null, aN:'River Plate'},
+ {r:7, hId:'riestra', hN:'Riestra', aId:null, aN:'Vélez'},
+ {r:7, hId:'atucuman', hN:'Atl. Tucumán', aId:null, aN:'Belgrano'},
+ {r:7, hId:'tigre', hN:'Tigre', aId:null, aN:'Barracas'},
+ {r:7, hId:null, hN:'Unión', aId:'sarmiento', aN:'Sarmiento'},
+ {r:7, hId:null, hN:'Estudiantes LP', aId:'newells', aN:"Newell's"},
+ {r:7, hId:'instituto', hN:'Instituto', aId:null, aN:'San Lorenzo'},
+ {r:7, hId:null, hN:'Huracán', aId:'erc', aN:'Estudiantes RC'},
+ {r:7, hId:null, hN:'Defensa y Justicia', aId:'platense', aN:'Platense'},
+ {r:7, hId:null, hN:'Argentinos JRS', aId:'aldosivi', aN:'Aldosivi'},
+ {r:7, hId:null, hN:'Talleres', aId:'ccordoba', aN:'Central Córdoba'},
+
+ {r:8, hId:null, hN:'Gimnasia LP', aId:'tigre', aN:'Tigre'},
+ {r:8, hId:null, hN:'Racing', aId:'atucuman', aN:'Atl. Tucumán'},
+ {r:8, hId:null, hN:'Rosario Central', aId:'newells', aN:"Newell's"},
+ {r:8, hId:null, hN:'Unión', aId:'instituto', aN:'Instituto'},
+ {r:8, hId:'erc', hN:'Estudiantes RC', aId:'sarmiento', aN:'Sarmiento'},
+ {r:8, hId:'ccordoba', hN:'Central Córdoba', aId:null, aN:'Independiente'},
+ {r:8, hId:'platense', hN:'Platense', aId:'riestra', aN:'Riestra'},
+ {r:8, hId:'aldosivi', hN:'Aldosivi', aId:'banfield', aN:'Banfield'},
+
+ {r:9, hId:null, hN:'Boca', aId:'ccordoba', aN:'Central Córdoba'},
+ {r:9, hId:null, hN:'Estudiantes LP', aId:'platense', aN:'Platense'},
+ {r:9, hId:'atucuman', hN:'Atl. Tucumán', aId:null, aN:'River Plate'},
+ {r:9, hId:'banfield', hN:'Banfield', aId:null, aN:'Barracas'},
+ {r:9, hId:'sarmiento', hN:'Sarmiento', aId:null, aN:'Belgrano'},
+ {r:9, hId:null, hN:'Independ. Rivadavia', aId:'aldosivi', aN:'Aldosivi'},
+ {r:9, hId:'newells', hN:"Newell's", aId:null, aN:'Vélez'},
+ {r:9, hId:'instituto', hN:'Instituto', aId:'erc', aN:'Estudiantes RC'},
+ {r:9, hId:'riestra', hN:'Riestra', aId:null, aN:'Lanús'},
+ {r:9, hId:'tigre', hN:'Tigre', aId:null, aN:'Rosario Central'},
+
+ {r:10, hId:'instituto', hN:'Instituto', aId:null, aN:'Talleres'},
+ {r:10, hId:'ccordoba', hN:'Central Córdoba', aId:null, aN:'Defensa y Justicia'},
+ {r:10, hId:'platense', hN:'Platense', aId:'newells', aN:"Newell's"},
+ {r:10, hId:null, hN:'Gimnasia (M)', aId:'riestra', aN:'Riestra'},
+ {r:10, hId:null, hN:'Gimnasia LP', aId:'banfield', aN:'Banfield'},
+ {r:10, hId:null, hN:'Vélez', aId:'tigre', aN:'Tigre'},
+ {r:10, hId:null, hN:'Belgrano', aId:'erc', aN:'Estudiantes RC'},
+ {r:10, hId:null, hN:'Racing', aId:'sarmiento', aN:'Sarmiento'},
+ {r:10, hId:'aldosivi', hN:'Aldosivi', aId:'atucuman', aN:'Atl. Tucumán'},
+
+ {r:11, hId:'sarmiento', hN:'Sarmiento', aId:null, aN:'River Plate'},
+ {r:11, hId:null, hN:'Argentinos JRS', aId:'tigre', aN:'Tigre'},
+ {r:11, hId:'erc', hN:'Estudiantes RC', aId:null, aN:'Racing'},
+ {r:11, hId:'newells', hN:"Newell's", aId:null, aN:'Lanús'},
+ {r:11, hId:null, hN:'Independiente', aId:'instituto', aN:'Instituto'},
+ {r:11, hId:null, hN:'Vélez', aId:'platense', aN:'Platense'},
+ {r:11, hId:null, hN:'Huracán', aId:'aldosivi', aN:'Aldosivi'},
+ {r:11, hId:'banfield', hN:'Banfield', aId:null, aN:'Rosario Central'},
+ {r:11, hId:'atucuman', hN:'Atl. Tucumán', aId:null, aN:'Barracas'},
+ {r:11, hId:'riestra', hN:'Riestra', aId:'ccordoba', aN:'Central Córdoba'},
+
+ {r:12, hId:'platense', hN:'Platense', aId:null, aN:'Argentinos JRS'},
+ {r:12, hId:null, hN:'Gimnasia (M)', aId:'newells', aN:"Newell's"},
+ {r:12, hId:'aldosivi', hN:'Aldosivi', aId:'sarmiento', aN:'Sarmiento'},
+ {r:12, hId:'ccordoba', hN:'Central Córdoba', aId:null, aN:'Estudiantes LP'},
+ {r:12, hId:'tigre', hN:'Tigre', aId:'banfield', aN:'Banfield'},
+ {r:12, hId:null, hN:'San Lorenzo', aId:'riestra', aN:'Riestra'},
+ {r:12, hId:'instituto', hN:'Instituto', aId:null, aN:'Boca'},
+ {r:12, hId:null, hN:'Gimnasia LP', aId:'atucuman', aN:'Atl. Tucumán'},
+ {r:12, hId:null, hN:'River Plate', aId:'erc', aN:'Estudiantes RC'},
+
+ {r:13, hId:null, hN:'Defensa y Justicia', aId:'instituto', aN:'Instituto'},
+ {r:13, hId:'newells', hN:"Newell's", aId:'ccordoba', aN:'Central Córdoba'},
+ {r:13, hId:null, hN:'Independ. Rivadavia', aId:'tigre', aN:'Tigre'},
+ {r:13, hId:'sarmiento', hN:'Sarmiento', aId:null, aN:'Barracas'},
+ {r:13, hId:'erc', hN:'Estudiantes RC', aId:'aldosivi', aN:'Aldosivi'},
+ {r:13, hId:'atucuman', hN:'Atl. Tucumán', aId:null, aN:'Rosario Central'},
+ {r:13, hId:'banfield', hN:'Banfield', aId:null, aN:'Argentinos JRS'},
+ {r:13, hId:'riestra', hN:'Riestra', aId:null, aN:'Unión'},
+ {r:13, hId:'platense', hN:'Platense', aId:null, aN:'Lanús'},
+
+ {r:14, hId:'aldosivi', hN:'Aldosivi', aId:null, aN:'Belgrano'},
+ {r:14, hId:'instituto', hN:'Instituto', aId:'riestra', aN:'Riestra'},
+ {r:14, hId:'tigre', hN:'Tigre', aId:'atucuman', aN:'Atl. Tucumán'},
+ {r:14, hId:null, hN:'San Lorenzo', aId:'newells', aN:"Newell's"},
+ {r:14, hId:'banfield', hN:'Banfield', aId:null, aN:'Lanús'},
+ {r:14, hId:null, hN:'Gimnasia (M)', aId:'platense', aN:'Platense'},
+ {r:14, hId:null, hN:'Gimnasia LP', aId:'sarmiento', aN:'Sarmiento'},
+ {r:14, hId:'ccordoba', hN:'Central Córdoba', aId:null, aN:'Vélez'},
+ {r:14, hId:null, hN:'Barracas', aId:'erc', aN:'Estudiantes RC'},
+
+ {r:15, hId:'sarmiento', hN:'Sarmiento', aId:null, aN:'Rosario Central'},
+ {r:15, hId:'riestra', hN:'Riestra', aId:null, aN:'Talleres'},
+ {r:15, hId:'platense', hN:'Platense', aId:'ccordoba', aN:'Central Córdoba'},
+ {r:15, hId:'atucuman', hN:'Atl. Tucumán', aId:null, aN:'Argentinos JRS'},
+ {r:15, hId:'newells', hN:"Newell's", aId:null, aN:'Unión'},
+ {r:15, hId:null, hN:'Independ. Rivadavia', aId:'banfield', aN:'Banfield'},
+ {r:15, hId:'erc', hN:'Estudiantes RC', aId:null, aN:'Gimnasia LP'},
+ {r:15, hId:null, hN:'Huracán', aId:'tigre', aN:'Tigre'},
+ {r:15, hId:null, hN:'Estudiantes LP', aId:'instituto', aN:'Instituto'},
+ {r:15, hId:null, hN:'Racing', aId:'aldosivi', aN:'Aldosivi'},
+
+ {r:16, hId:'ccordoba', hN:'Central Córdoba', aId:null, aN:'Lanús'},
+ {r:16, hId:null, hN:'San Lorenzo', aId:'platense', aN:'Platense'},
+ {r:16, hId:null, hN:'Rosario Central', aId:'erc', aN:'Estudiantes RC'},
+ {r:16, hId:'banfield', hN:'Banfield', aId:'atucuman', aN:'Atl. Tucumán'},
+ {r:16, hId:'tigre', hN:'Tigre', aId:'sarmiento', aN:'Sarmiento'},
+ {r:16, hId:null, hN:'Independiente', aId:'riestra', aN:'Riestra'},
+ {r:16, hId:'aldosivi', hN:'Aldosivi', aId:null, aN:'River Plate'},
+ {r:16, hId:'instituto', hN:'Instituto', aId:'newells', aN:"Newell's"}
+];
+
+function randomResult(){
+  const opts = ['h','e','a'];
+  return opts[Math.floor(Math.random()*opts.length)];
+}
+
+MATCHES.forEach((m,i)=>{ m.idx=i; m.result = null; m.confirmed = false; }); // 'h' | 'e' | 'a' | null
+const CONFIRMED_NOW = []; // partidos confirmados como jugados durante esta sesión
+
+// equipos que se consideran en este modo (igual mecánica que en "¿Qué pasa si...?")
+const PAP_SELECTED = {};
+Object.keys(TEAMS).forEach(id=> PAP_SELECTED[id] = true);
+
+const roundsEl = document.getElementById('rounds');
+
+function getByRound(){
+  const byRound = {};
+  MATCHES.filter(m=> !m.confirmed && ((m.hId && PAP_SELECTED[m.hId]) || (m.aId && PAP_SELECTED[m.aId])))
+    .forEach(m=>{ (byRound[m.r]=byRound[m.r]||[]).push(m); });
+  return byRound;
+}
+
+function buildUI(){
+  roundsEl.innerHTML='';
+  const byRound = getByRound();
+  Object.keys(byRound).sort((a,b)=>a-b).forEach(r=>{
+    const div = document.createElement('div');
+    div.className='round';
+    div.innerHTML = `<div class="round-title"><span>Jornada ${r}${r==2?' (restantes)':''}</span><span class="done" data-roundcount="${r}"></span></div>`;
+    byRound[r].forEach(m=>{
+      const row = document.createElement('div');
+      row.className='match pending';
+      row.dataset.rowIdx = m.idx;
+      const hClass = m.hId ? 'tracked' : '';
+      const aClass = m.aId ? 'tracked' : '';
+      row.innerHTML = `
+        <div class="team home"><span class="team-name ${hClass}">${m.hN}</span></div>
+        <div class="rbtns">
+          <button class="rbtn" data-idx="${m.idx}" data-res="h">L</button>
+          <button class="rbtn" data-idx="${m.idx}" data-res="e">E</button>
+          <button class="rbtn" data-idx="${m.idx}" data-res="a">V</button>
+        </div>
+        <div class="team away"><span class="team-name ${aClass}">${m.aN}</span></div>
+        <button class="confirm-one" data-confirm-idx="${m.idx}" title="Confirmar como ya jugado (resultado real)">✓</button>
+        <button class="clear-one" data-clear-idx="${m.idx}" title="Limpiar resultado">✕</button>
+      `;
+      div.appendChild(row);
+    });
+    roundsEl.appendChild(div);
+  });
+}
+buildUI();
+MATCHES.forEach(m=> refreshButtons(m.idx));
+
+function buildPAPChips(){
+  const wrap = document.getElementById('papTeamChips');
+  if(!wrap) return;
+  wrap.innerHTML = '';
+  const ids = Object.keys(TEAMS).sort((a,b)=> TEAMS[a].name.localeCompare(TEAMS[b].name,'es'));
+  ids.forEach(id=>{
+    const chip = document.createElement('button');
+    chip.className = 'qps-chip' + (PAP_SELECTED[id] ? ' selected' : '');
+    chip.dataset.papChip = id;
+    chip.innerHTML = `${PAP_SELECTED[id] ? '✓ ' : ''}${TEAMS[id].name}`;
+    wrap.appendChild(chip);
+  });
+  const countEl = document.getElementById('papChipCount');
+  if(countEl){
+    const n = ids.filter(id=>PAP_SELECTED[id]).length;
+    countEl.textContent = `${n} de ${ids.length} equipos elegidos`;
+  }
+}
+buildPAPChips();
+filterYaJugados();
+
+document.getElementById('papTeamChips').addEventListener('click', (e)=>{
+  const chip = e.target.closest('[data-pap-chip]');
+  if(!chip) return;
+  PAP_SELECTED[chip.dataset.papChip] = !PAP_SELECTED[chip.dataset.papChip];
+  buildPAPChips();
+  buildUI();
+  MATCHES.forEach(m=> refreshButtons(m.idx));
+  filterYaJugados();
+  updateProgress();
+  calc();
+});
+document.getElementById('papChipAll').addEventListener('click', ()=>{
+  Object.keys(TEAMS).forEach(id=> PAP_SELECTED[id]=true);
+  buildPAPChips(); buildUI();
+  MATCHES.forEach(m=> refreshButtons(m.idx));
+  filterYaJugados();
+  updateProgress(); calc();
+});
+document.getElementById('papChipNone').addEventListener('click', ()=>{
+  Object.keys(TEAMS).forEach(id=> PAP_SELECTED[id]=false);
+  buildPAPChips(); buildUI();
+  MATCHES.forEach(m=> refreshButtons(m.idx));
+  filterYaJugados();
+  updateProgress(); calc();
+});
+
+function renderConfirmedNow(){
+  const wrap = document.getElementById('confirmedNowList');
+  if(!wrap) return;
+  if(CONFIRMED_NOW.length===0){ wrap.innerHTML=''; return; }
+  wrap.innerHTML = `<div class="round-title" style="border-top:1px solid var(--line);">Confirmados por vos en esta sesión</div>` +
+    CONFIRMED_NOW.map(m=>{
+      const hSel = m.result==='h' ? 'sel-h' : '';
+      const eSel = m.result==='e' ? 'sel-e' : '';
+      const aSel = m.result==='a' ? 'sel-a' : '';
+      const hClass = m.hId ? 'tracked' : '';
+      const aClass = m.aId ? 'tracked' : '';
+      const teams = [m.hId, m.aId].filter(Boolean).join(',');
+      return `<div class="match played" data-teams="${teams}"><div class="team home"><span class="team-name ${hClass}">${m.hN}</span></div><div class="rbtns"><span class="rbtn ${hSel}">L</span><span class="rbtn ${eSel}">E</span><span class="rbtn ${aSel}">V</span></div><div class="team away"><span class="team-name ${aClass}">${m.aN}</span></div></div>`;
+    }).join('');
+  filterYaJugados();
+}
+
+function filterYaJugados(){
+  document.querySelectorAll('#jugadosDetails .match.played').forEach(row=>{
+    const teams = (row.dataset.teams || '').split(',').filter(Boolean);
+    const show = teams.length===0 || teams.some(id=> PAP_SELECTED[id]);
+    row.style.display = show ? '' : 'none';
+  });
+  // ocultar encabezados de fecha que se quedaron sin ningún partido visible
+  document.querySelectorAll('#jugadosDetails .round-title:not(summary)').forEach(title=>{
+    let sib = title.nextElementSibling;
+    let anyVisible = false;
+    while(sib && !sib.classList.contains('round-title')){
+      if(sib.classList.contains('match') && sib.style.display !== 'none'){ anyVisible = true; break; }
+      sib = sib.nextElementSibling;
+    }
+    title.style.display = anyVisible ? '' : 'none';
+  });
+}
+
+function requestConfirmPlayed(idx){
+  const m = MATCHES[idx];
+  if(!m || !m.result) return;
+  const resTxt = m.result==='h' ? `Gana ${m.hN}` : m.result==='a' ? `Gana ${m.aN}` : 'Empate';
+  openConfirm(
+    '¿Confirmar este partido como ya jugado?',
+    `${m.hN} vs ${m.aN} — ${resTxt}. Se va a sumar de forma permanente a los puntos base de las tablas (en esta sesión) y a "Ya jugados". No se puede deshacer desde acá. Ojo: si cerrás y volvés a abrir el archivo, este cambio se pierde — avisame el resultado para dejarlo guardado en el archivo para siempre.`,
+    ()=> confirmPlayed(idx),
+    'Sí, ya se jugó'
+  );
+}
+
+function confirmPlayed(idx){
+  const m = MATCHES[idx];
+  let hPts, aPts;
+  if(m.result==='h'){ hPts=3; aPts=0; }
+  else if(m.result==='a'){ hPts=0; aPts=3; }
+  else { hPts=1; aPts=1; }
+
+  if(m.hId && ANUAL_BASE[m.hId]){ ANUAL_BASE[m.hId].pts+=hPts; ANUAL_BASE[m.hId].pj+=1; }
+  if(m.hId && PROM_BASE[m.hId]){ PROM_BASE[m.hId].pts+=hPts; PROM_BASE[m.hId].pj+=1; }
+  if(m.aId && ANUAL_BASE[m.aId]){ ANUAL_BASE[m.aId].pts+=aPts; ANUAL_BASE[m.aId].pj+=1; }
+  if(m.aId && PROM_BASE[m.aId]){ PROM_BASE[m.aId].pts+=aPts; PROM_BASE[m.aId].pj+=1; }
+
+  m.confirmed = true;
+  CONFIRMED_NOW.push(m);
+
+  buildUI();
+  MATCHES.filter(mm=>!mm.confirmed).forEach(mm=> refreshButtons(mm.idx));
+  renderConfirmedNow();
+  updateProgress();
+  calc();
+
+  // el modo "¿Qué pasa si...?" también tiene que reflejar el partido ya confirmado
+  Object.keys(TEAMS).forEach(id=>{
+    QPS_TOTAL_PENDIENTES[id] = MATCHES.filter(mm=> !mm.confirmed && (mm.hId===id || mm.aId===id)).length;
+  });
+  if(typeof buildQPSInputs === 'function'){ buildQPSInputs(); renderQPSBaseline(); }
+}
+
+roundsEl.addEventListener('click', (e)=>{
+  const confirmBtn = e.target.closest('.confirm-one');
+  if(confirmBtn){
+    const idx = parseInt(confirmBtn.dataset.confirmIdx,10);
+    requestConfirmPlayed(idx);
+    return;
+  }
+  const clearBtn = e.target.closest('.clear-one');
+  if(clearBtn){
+    const idx = parseInt(clearBtn.dataset.clearIdx,10);
+    MATCHES[idx].result = null;
+    refreshButtons(idx);
+    updateProgress();
+    calc();
+    return;
+  }
+  const btn = e.target.closest('.rbtn');
+  if(!btn) return;
+  const idx = parseInt(btn.dataset.idx,10);
+  const res = btn.dataset.res;
+  const m = MATCHES[idx];
+  m.result = (m.result === res) ? null : res; // toggle off si tocás el mismo
+  refreshButtons(idx);
+  updateProgress();
+  calc();
+});
+
+function refreshButtons(idx){
+  const m = MATCHES[idx];
+  document.querySelectorAll(`.rbtn[data-idx="${idx}"]`).forEach(b=>{
+    b.classList.remove('sel-h','sel-e','sel-a');
+    if(m.result && b.dataset.res===m.result){
+      b.classList.add('sel-'+m.result);
+    }
+  });
+  const row = document.querySelector(`.match[data-row-idx="${idx}"]`);
+  if(row){
+    row.classList.toggle('pending', !m.result);
+    row.classList.toggle('answered', !!m.result);
+  }
+}
+
+function updateProgress(){
+  const pend = MATCHES.filter(m=> !m.confirmed && ((m.hId && PAP_SELECTED[m.hId]) || (m.aId && PAP_SELECTED[m.aId])));
+  const total = pend.length;
+  const done = pend.filter(m=>m.result).length;
+  document.getElementById('progBar').style.width = (total ? done/total*100 : 0)+'%';
+  document.getElementById('progLabel').textContent = `${done} / ${total} cargados`;
+  const byR = {};
+  pend.forEach(m=>{ byR[m.r]=byR[m.r]||{done:0,total:0}; byR[m.r].total++; if(m.result) byR[m.r].done++; });
+  Object.keys(byR).forEach(r=>{
+    const el = document.querySelector(`[data-roundcount="${r}"]`);
+    if(el) el.textContent = byR[r].done===byR[r].total ? '✓ completa' : `${byR[r].done}/${byR[r].total}`;
+  });
+}
+
+// ---------- tabs (escopado por header, para no mezclar los dos modos) ----------
+document.querySelectorAll('.tab').forEach(t=>{
+  t.addEventListener('click', ()=>{
+    const scope = t.closest('header').parentElement;
+    scope.querySelectorAll('.tab').forEach(x=>x.classList.remove('active'));
+    scope.querySelectorAll('.panel').forEach(x=>x.classList.remove('active'));
+    t.classList.add('active');
+    scope.querySelector('#panel-'+t.dataset.tab).classList.add('active');
+  });
+});
+
+// ---------- quick actions ----------
+let pendingConfirmAction = null;
+
+function openConfirm(title, sub, onConfirm, okLabel){
+  document.getElementById('confirmTitle').textContent = title;
+  document.getElementById('confirmSubDefault').textContent = sub;
+  document.getElementById('btnConfirmOk').textContent = okLabel || 'Sí, continuar';
+  pendingConfirmAction = onConfirm;
+  document.getElementById('confirmOverlay').classList.add('show');
+}
+
+function requestClearAll(){
+  const done = MATCHES.filter(m=>m.result).length;
+  openConfirm(
+    '¿Está seguro que desea borrar todos los resultados?',
+    done>0
+      ? `Se van a limpiar los ${done} partidos que ya cargaste. Esta acción no se puede deshacer.`
+      : `Todavía no cargaste ningún partido.`,
+    ()=>{
+      MATCHES.forEach(m=>{ m.result=null; refreshButtons(m.idx); });
+      updateProgress(); calc();
+    },
+    'Sí, borrar todo'
+  );
+}
+
+document.getElementById('qbBorrar').addEventListener('click', requestClearAll);
+document.getElementById('btnReset').addEventListener('click', requestClearAll);
+
+document.getElementById('btnConfirmCancel').addEventListener('click', ()=>{
+  document.getElementById('confirmOverlay').classList.remove('show');
+  pendingConfirmAction = null;
+});
+document.getElementById('btnConfirmOk').addEventListener('click', ()=>{
+  if(pendingConfirmAction) pendingConfirmAction();
+  document.getElementById('confirmOverlay').classList.remove('show');
+  pendingConfirmAction = null;
+});
+
+// ---------- calculo ----------
+function calc(){
+  const selIds = Object.keys(TEAMS).filter(id=> PAP_SELECTED[id]);
+  const anual = {};
+  const prom = {};
+  Object.keys(ANUAL_BASE).filter(id=>PAP_SELECTED[id]).forEach(id=> anual[id] = {...ANUAL_BASE[id]});
+  Object.keys(PROM_BASE).filter(id=>PAP_SELECTED[id]).forEach(id=> prom[id] = {...PROM_BASE[id]});
+
+  const gep = {};
+  selIds.forEach(id=> gep[id] = {g:0,e:0,p:0,total:0,done:0});
+  MATCHES.filter(m=>!m.confirmed).forEach(m=>{
+    if(m.hId && gep[m.hId]) gep[m.hId].total++;
+    if(m.aId && gep[m.aId]) gep[m.aId].total++;
+  });
+
+  MATCHES.forEach(m=>{
+    if(!m.result || m.confirmed) return; // los confirmados ya están sumados en ANUAL_BASE/PROM_BASE
+    let hPts, aPts, hRes, aRes;
+    if(m.result==='h'){ hPts=3; aPts=0; hRes='g'; aRes='p'; }
+    else if(m.result==='a'){ hPts=0; aPts=3; hRes='p'; aRes='g'; }
+    else { hPts=1; aPts=1; hRes='e'; aRes='e'; }
+
+    if(m.hId){
+      if(anual[m.hId]){ anual[m.hId].pts += hPts; anual[m.hId].pj += 1; }
+      if(prom[m.hId]){ prom[m.hId].pts += hPts; prom[m.hId].pj += 1; }
+      if(gep[m.hId]){ gep[m.hId][hRes]++; gep[m.hId].done++; }
+    }
+    if(m.aId){
+      if(anual[m.aId]){ anual[m.aId].pts += aPts; anual[m.aId].pj += 1; }
+      if(prom[m.aId]){ prom[m.aId].pts += aPts; prom[m.aId].pj += 1; }
+      if(gep[m.aId]){ gep[m.aId][aRes]++; gep[m.aId].done++; }
+    }
+  });
+
+  const promRows = buildRows(prom, true);
+  const anualRows = buildRows(anual, false);
+
+  let anualRelegIndex = -1, promLastId = null;
+  if(promRows.length) promLastId = promRows[promRows.length-1].id;
+  if(anualRows.length){
+    const anualLastId = anualRows[anualRows.length-1].id;
+    // Si el último de la Anual es el mismo equipo que ya desciende por Promedios,
+    // el segundo descenso por Anual pasa al anteúltimo.
+    anualRelegIndex = (anualLastId === promLastId) ? anualRows.length-2 : anualRows.length-1;
+  }
+
+  renderTable('tabla-anual', anualRows, false, anualRelegIndex, promLastId);
+  renderTable('tabla-promedios', promRows, true, promRows.length ? promRows.length-1 : -1, null);
+  renderResumen(gep);
+}
+
+function buildRows(data, isProm){
+  const rows = Object.keys(data).map(id=>{
+    const d = data[id];
+    const coef = d.pj>0 ? d.pts/d.pj : 0;
+    return {id, name:TEAMS[id].name, pts:d.pts, pj:d.pj, coef};
+  });
+  rows.sort((a,b)=> isProm ? (b.coef-a.coef) : (b.pts-a.pts));
+  return rows;
+}
+
+let RESUMEN_DATA = [];
+let QPS_RESUMEN_DATA = [];
+function renderResumen(gep){
+  const tbody = document.querySelector('#tabla-resumen tbody');
+  tbody.innerHTML='';
+  const ids = Object.keys(gep).sort((a,b)=>{
+    const ptsA = gep[a].g*3 + gep[a].e*1;
+    const ptsB = gep[b].g*3 + gep[b].e*1;
+    return ptsB - ptsA;
+  });
+  RESUMEN_DATA = ids.map(id=>{
+    const d = gep[id];
+    return {name: TEAMS[id].name, pts: d.g*3+d.e*1, done:d.done, total:d.total, g:d.g, e:d.e, p:d.p};
+  });
+  if(ids.length===0){
+    tbody.innerHTML = '<tr><td colspan="6" style="text-align:center; color:var(--muted); padding:14px;">Elegí al menos un equipo para ver el resumen.</td></tr>';
+    renderResumenDetalle(gep);
+    return;
+  }
+  ids.forEach(id=>{
+    const d = gep[id];
+    const pts = d.g*3 + d.e*1;
+    const tr = document.createElement('tr');
+    tr.innerHTML = `<td class="name">${TEAMS[id].name}</td><td><b>${pts}</b></td><td>${d.done}/${d.total}</td><td>${d.g}</td><td>${d.e}</td><td>${d.p}</td>`;
+    tbody.appendChild(tr);
+  });
+
+  renderResumenDetalle(gep);
+}
+
+function renderResumenDetalle(gep){
+  const wrap = document.getElementById('resumen-detalle');
+  const openIds = new Set(
+    Array.from(wrap.querySelectorAll('details[open]')).map(d=>d.dataset.teamId)
+  );
+  wrap.innerHTML = '';
+
+  const ids = Object.keys(gep).sort((a,b)=> TEAMS[a].name.localeCompare(TEAMS[b].name,'es'));
+  ids.forEach(id=>{
+    const teamMatches = MATCHES.filter(m=> m.hId===id || m.aId===id);
+    const d = gep[id];
+
+    const det = document.createElement('details');
+    det.className = 'team-detail';
+    det.dataset.teamId = id;
+    if(openIds.has(id)) det.open = true;
+
+    const summary = document.createElement('summary');
+    summary.innerHTML = `<span>${TEAMS[id].name}</span><span class="td-count">${d.done}/${d.total} cargados</span>`;
+    det.appendChild(summary);
+
+    teamMatches.forEach(m=>{
+      const isHome = m.hId === id;
+      const rivalName = isHome ? m.aN : m.hN;
+      let resLabel = 'Sin cargar', resClass = '';
+      if(m.result){
+        const won = (isHome && m.result==='h') || (!isHome && m.result==='a');
+        const draw = m.result==='e';
+        if(won){ resLabel='Gana'; resClass='g'; }
+        else if(draw){ resLabel='Empate'; resClass='e'; }
+        else { resLabel='Pierde'; resClass='p'; }
+      }
+      const row = document.createElement('div');
+      row.className = 'td-row';
+      row.innerHTML = `
+        <span class="td-jornada">F${m.r}</span>
+        <span class="td-venue">${isHome ? 'L' : 'V'}</span>
+        <span class="td-rival">vs ${rivalName}</span>
+        <span class="td-result ${resClass}">${resLabel}</span>
+      `;
+      det.appendChild(row);
+    });
+
+    wrap.appendChild(det);
+  });
+}
+
+const TABLE_DATA = {};
+function renderTable(tableId, rows, isProm, relegIndex, alreadyRelegatedId){
+  TABLE_DATA[tableId] = {rows, isProm, relegIndex, alreadyRelegatedId};
+  const tbody = document.querySelector('#'+tableId+' tbody');
+  tbody.innerHTML='';
+  rows.forEach((row,i)=>{
+    const tr = document.createElement('tr');
+    if(i===relegIndex) tr.classList.add('relegation');
+    else if(!isProm && row.id===alreadyRelegatedId) tr.classList.add('already-relegated');
+    let nameCell = row.name;
+    if(!isProm && row.id===alreadyRelegatedId) nameCell += ' <span class="tag-info">ya desc. x Promedios</span>';
+    if(isProm){
+      tr.innerHTML = `<td class="pos">${i+1}</td><td class="name">${nameCell}</td><td>${row.coef.toFixed(3)}</td><td>${row.pts}</td><td>${row.pj}</td>`;
+    } else {
+      tr.innerHTML = `<td class="pos">${i+1}</td><td class="name">${nameCell}</td><td>${row.pts}</td><td>${row.pj}</td>`;
+    }
+    tbody.appendChild(tr);
+  });
+}
+
+document.getElementById('btnCalc').addEventListener('click', function(){
+  calc();
+
+  const btn = this;
+  const original = btn.textContent;
+  btn.classList.add('done');
+  btn.textContent = '✓ Tablas actualizadas — mirá abajo';
+  setTimeout(()=>{
+    btn.classList.remove('done');
+    btn.textContent = original;
+  }, 900);
+});
+
+updateProgress();
+calc();
+
+/* =========================================================================
+   SELECTOR DE MODO
+   ========================================================================= */
+function showMode(mode){
+  document.getElementById('modeSelect').style.display = 'none';
+  document.getElementById('modePartidoAPartido').style.display = 'none';
+  document.getElementById('modeQuePasaSi').style.display = 'none';
+  if(mode==='pap') document.getElementById('modePartidoAPartido').style.display = '';
+  if(mode==='qps') document.getElementById('modeQuePasaSi').style.display = '';
+  if(mode==='select') document.getElementById('modeSelect').style.display = '';
+  window.scrollTo(0,0);
+}
+document.getElementById('btnModePAP').addEventListener('click', ()=> showMode('pap'));
+document.getElementById('btnModeQPS').addEventListener('click', ()=> showMode('qps'));
+document.querySelectorAll('[data-back-to-select]').forEach(b=>{
+  b.addEventListener('click', ()=>{
+    const inPAP = !!b.closest('#modePartidoAPartido');
+    const inQPS = !!b.closest('#modeQuePasaSi');
+
+    if(inPAP){
+      const done = MATCHES.filter(m=>m.result).length;
+      const excluidosPAP = Object.keys(TEAMS).filter(id=> !PAP_SELECTED[id]).length;
+      openConfirm(
+        '¿Está seguro que desea cambiar de modo?',
+        (done>0 || excluidosPAP>0)
+          ? `Se van a borrar los ${done} partidos que cargaste${excluidosPAP>0 ? ` y se van a volver a incluir los ${excluidosPAP} equipo(s) que habías sacado` : ''} en "Partido a partido" para volver a elegir.`
+          : `Todavía no cargaste ningún partido en este modo.`,
+        ()=>{
+          MATCHES.forEach(m=>{ m.result=null; refreshButtons(m.idx); });
+          Object.keys(TEAMS).forEach(id=> PAP_SELECTED[id]=true);
+          buildPAPChips(); buildUI();
+          MATCHES.forEach(m=> refreshButtons(m.idx));
+          filterYaJugados();
+          updateProgress(); calc();
+          showMode('select');
+        },
+        'Sí, cambiar de modo'
+      );
+    } else if(inQPS){
+      const cargados = Object.keys(TEAMS).filter(id=>{
+        if(!QPS_SELECTED[id]) return false;
+        const g = parseInt(document.querySelector(`.qtyinput[data-qps-id="${id}"][data-qps-f="g"]`)?.value,10)||0;
+        const e = parseInt(document.querySelector(`.qtyinput[data-qps-id="${id}"][data-qps-f="e"]`)?.value,10)||0;
+        const p = parseInt(document.querySelector(`.qtyinput[data-qps-id="${id}"][data-qps-f="p"]`)?.value,10)||0;
+        return (g+e+p) > 0;
+      }).length;
+      const excluidos = Object.keys(TEAMS).filter(id=> !QPS_SELECTED[id]).length;
+      openConfirm(
+        '¿Está seguro que desea cambiar de modo?',
+        (cargados>0 || excluidos>0)
+          ? `Se van a borrar los resultados cargados${cargados>0 ? ` (${cargados} equipo(s))` : ''}${excluidos>0 ? ` y se van a volver a incluir los ${excluidos} equipo(s) que habías sacado` : ''} en "¿Qué pasa si...?" para volver a elegir.`
+          : `Todavía no cargaste resultados en este modo.`,
+        ()=>{
+          Object.keys(TEAMS).forEach(id=> QPS_SELECTED[id]=true);
+          buildTeamChips();
+          buildQPSInputs();
+          renderQPSBaseline();
+          showMode('select');
+        },
+        'Sí, cambiar de modo'
+      );
+    } else {
+      showMode('select');
+    }
+  });
+});
+
+/* =========================================================================
+   MODO "¿QUÉ PASA SI...?" — un único total de puntos por equipo,
+   resolviendo los cruces internos entre los 11 equipos de forma coherente.
+   ========================================================================= */
+
+// partidos entre dos equipos de la lista (cruces internos)
+const QPS_INTERNAL = MATCHES.filter(m=> m.hId && m.aId);
+// total de partidos pendientes por equipo (igual que en el modo Partido a Partido)
+const QPS_TOTAL_PENDIENTES = {};
+Object.keys(TEAMS).forEach(id=>{
+  QPS_TOTAL_PENDIENTES[id] = MATCHES.filter(m=> m.hId===id || m.aId===id).length;
+});
+
+// equipos que participan de esta simulación (por defecto, todos)
+const QPS_SELECTED = {};
+Object.keys(TEAMS).forEach(id=> QPS_SELECTED[id] = true);
+
+function qpsSelectHtml(id, field, total){
+  const maxDigit = Math.min(9, total);
+  const options = Array.from({length:maxDigit+1}, (_,i)=>i)
+    .map(n=>`<option value="${n}">${n}</option>`).join('');
+  return `<select class="qtyinput qps-select" data-qps-id="${id}" data-qps-f="${field}">${options}</select>`;
+}
+
+function buildTeamChips(){
+  const wrap = document.getElementById('qpsTeamChips');
+  wrap.innerHTML = '';
+  const ids = Object.keys(TEAMS).sort((a,b)=> TEAMS[a].name.localeCompare(TEAMS[b].name,'es'));
+  ids.forEach(id=>{
+    const chip = document.createElement('button');
+    chip.className = 'qps-chip' + (QPS_SELECTED[id] ? ' selected' : '');
+    chip.dataset.qpsChip = id;
+    chip.innerHTML = `${QPS_SELECTED[id] ? '✓ ' : ''}${TEAMS[id].name}`;
+    wrap.appendChild(chip);
+  });
+  const countEl = document.getElementById('qpsChipCount');
+  const n = ids.filter(id=>QPS_SELECTED[id]).length;
+  countEl.textContent = `${n} de ${ids.length} equipos elegidos`;
+}
+buildTeamChips();
+
+document.getElementById('qpsTeamChips').addEventListener('click', (e)=>{
+  const chip = e.target.closest('[data-qps-chip]');
+  if(!chip) return;
+  const id = chip.dataset.qpsChip;
+  QPS_SELECTED[id] = !QPS_SELECTED[id];
+  buildTeamChips();
+  buildQPSInputs();
+  renderQPSBaseline();
+});
+document.getElementById('qpsChipAll').addEventListener('click', ()=>{
+  Object.keys(TEAMS).forEach(id=> QPS_SELECTED[id]=true);
+  buildTeamChips(); buildQPSInputs(); renderQPSBaseline();
+});
+document.getElementById('qpsChipNone').addEventListener('click', ()=>{
+  Object.keys(TEAMS).forEach(id=> QPS_SELECTED[id]=false);
+  buildTeamChips(); buildQPSInputs(); renderQPSBaseline();
+});
+
+function buildQPSInputs(){
+  const wrap = document.getElementById('qpsInputs');
+  wrap.innerHTML = '';
+  const ids = Object.keys(TEAMS)
+    .filter(id=> QPS_SELECTED[id])
+    .sort((a,b)=> TEAMS[a].name.localeCompare(TEAMS[b].name,'es'));
+
+  if(ids.length===0){
+    wrap.innerHTML = '<p class="note" style="padding:10px;">Elegí al menos un equipo arriba para cargar resultados.</p>';
+    return;
+  }
+
+  ids.forEach(id=>{
+    const total = QPS_TOTAL_PENDIENTES[id];
+    const row = document.createElement('div');
+    row.className = 'qtyrow';
+    row.innerHTML = `
+      <div class="qtyrow-name">
+        <span class="team-name tracked">${TEAMS[id].name}</span>
+        <span class="ext-count">${total} partidos pendientes</span>
+      </div>
+      <div class="qtyfields">
+        <div class="qtyfield"><label>G</label>${qpsSelectHtml(id,'g',total)}</div>
+        <div class="qtyfield"><label>E</label>${qpsSelectHtml(id,'e',total)}</div>
+        <div class="qtyfield"><label>P</label>${qpsSelectHtml(id,'p',total)}</div>
+      </div>
+      <div class="qtysum-col">
+        <div class="qtysum ok" id="qpssum-${id}">0/${total}</div>
+        <div class="qtypts" id="qpspts-${id}">0/${total*3} pts</div>
+      </div>
+    `;
+    wrap.appendChild(row);
+  });
+  ids.forEach(id=> clampQPSInput(id));
+}
+buildQPSInputs();
+
+function clampQPSInput(id){
+  const total = QPS_TOTAL_PENDIENTES[id];
+  const g = document.querySelector(`.qtyinput[data-qps-id="${id}"][data-qps-f="g"]`);
+  const e = document.querySelector(`.qtyinput[data-qps-id="${id}"][data-qps-f="e"]`);
+  const p = document.querySelector(`.qtyinput[data-qps-id="${id}"][data-qps-f="p"]`);
+  if(!g||!e||!p) return true;
+  [g,e,p].forEach(inp=>{
+    let v = parseInt(inp.value,10);
+    if(isNaN(v) || v<0) v=0;
+    inp.value = v;
+  });
+  const sum = (parseInt(g.value,10)||0)+(parseInt(e.value,10)||0)+(parseInt(p.value,10)||0);
+  const label = document.getElementById('qpssum-'+id);
+  label.textContent = `${sum}/${total}`;
+  label.classList.remove('ok','warn','err');
+  if(sum>total) label.classList.add('err');
+  else if(sum===total) label.classList.add('ok');
+  else label.classList.add('warn');
+
+  const pts = (parseInt(g.value,10)||0)*3 + (parseInt(e.value,10)||0)*1;
+  const maxPts = total*3;
+  const ptsLabel = document.getElementById('qpspts-'+id);
+  if(ptsLabel){
+    ptsLabel.textContent = `${pts}/${maxPts} pts`;
+    const pct = maxPts>0 ? pts/maxPts : 0;
+    ptsLabel.classList.remove('pts-low','pts-mid','pts-high');
+    if(pct >= 0.6) ptsLabel.classList.add('pts-high');
+    else if(pct >= 0.35) ptsLabel.classList.add('pts-mid');
+    else ptsLabel.classList.add('pts-low');
+  }
+
+  return sum<=total;
+}
+Object.keys(TEAMS).filter(id=>QPS_SELECTED[id]).forEach(id=> clampQPSInput(id));
+
+document.getElementById('qpsInputs').addEventListener('change', (e)=>{
+  const inp = e.target.closest('.qtyinput');
+  if(!inp) return;
+  clampQPSInput(inp.dataset.qpsId);
+});
+
+
+function solveQPS(targets, selectedIds){
+  const need = {}, matchesLeft = {}, achieved = {};
+  selectedIds.forEach(id=>{
+    need[id] = targets[id];
+    matchesLeft[id] = QPS_TOTAL_PENDIENTES[id];
+    achieved[id] = 0;
+  });
+
+  const selSet = new Set(selectedIds);
+  // solo se resuelven de forma coherente los cruces donde AMBOS equipos siguen en la simulación
+  const internalActive = QPS_INTERNAL.filter(m=> !m.confirmed && selSet.has(m.hId) && selSet.has(m.aId));
+
+  internalActive.forEach(m=>{
+    const A = m.hId, B = m.aId;
+    const rateA = matchesLeft[A]>0 ? need[A]/matchesLeft[A] : -1;
+    const rateB = matchesLeft[B]>0 ? need[B]/matchesLeft[B] : -1;
+    let awardA, awardB;
+    if(Math.abs(rateA-rateB) < 0.5){ awardA=1; awardB=1; }
+    else if(rateA>rateB){ awardA=3; awardB=0; }
+    else { awardA=0; awardB=3; }
+    achieved[A]+=awardA; achieved[B]+=awardB;
+    need[A]-=awardA; need[B]-=awardB;
+    matchesLeft[A]-=1; matchesLeft[B]-=1;
+  });
+
+  // repartir el resto de los partidos (contra rivales excluidos o fuera de la lista) libremente
+  selectedIds.forEach(id=>{
+    let remainingMatches = matchesLeft[id];
+    let remainingNeed = need[id];
+    while(remainingMatches>0 && remainingNeed>0){
+      if(remainingNeed>=3){ achieved[id]+=3; remainingNeed-=3; }
+      else { achieved[id]+=1; remainingNeed-=1; }
+      remainingMatches--;
+    }
+  });
+
+  return achieved; // puntos que cada equipo terminaría sumando en sus partidos pendientes
+}
+
+function renderQPSBaseline(){
+  const ids = Object.keys(TEAMS).filter(id=> QPS_SELECTED[id]);
+  const anualSubset = {}; ids.forEach(id=>{ if(ANUAL_BASE[id]) anualSubset[id]=ANUAL_BASE[id]; });
+  const promSubset = {}; ids.forEach(id=>{ if(PROM_BASE[id]) promSubset[id]=PROM_BASE[id]; });
+
+  const anualRows = buildRows(anualSubset, false);
+  const promRows = buildRows(promSubset, true);
+  let anualRelegIndex = -1, promLastId = null;
+  if(promRows.length) promLastId = promRows[promRows.length-1].id;
+  if(anualRows.length){
+    const anualLastId = anualRows[anualRows.length-1].id;
+    anualRelegIndex = (anualLastId === promLastId) ? anualRows.length-2 : anualRows.length-1;
+  }
+
+  renderTable('tabla-anual-qps', anualRows, false, anualRelegIndex, promLastId);
+  renderTable('tabla-promedios-qps', promRows, true, promRows.length ? promRows.length-1 : -1, null);
+
+  QPS_RESUMEN_DATA = [];
+  document.getElementById('qpsAjusteNote').style.display = 'none';
+}
+renderQPSBaseline();
+
+function calcQPS(){
+  const selectedIds = Object.keys(TEAMS).filter(id=> QPS_SELECTED[id]);
+  if(selectedIds.length===0){
+    alert('Incluí al menos un equipo para poder calcular.');
+    return;
+  }
+
+  let allValid = true;
+  selectedIds.forEach(id=>{ if(!clampQPSInput(id)) allValid = false; });
+  if(!allValid){
+    alert('Hay equipos con más partidos cargados (G+E+P) de los que tienen disponibles. Corregí esos casilleros en rojo antes de calcular.');
+    return;
+  }
+
+  const targets = {};
+  const gepInputs = {};
+  selectedIds.forEach(id=>{
+    const g = parseInt(document.querySelector(`.qtyinput[data-qps-id="${id}"][data-qps-f="g"]`).value,10)||0;
+    const e = parseInt(document.querySelector(`.qtyinput[data-qps-id="${id}"][data-qps-f="e"]`).value,10)||0;
+    const p = parseInt(document.querySelector(`.qtyinput[data-qps-id="${id}"][data-qps-f="p"]`).value,10)||0;
+    targets[id] = g*3 + e*1;
+    gepInputs[id] = {g,e,p};
+  });
+
+  const achieved = solveQPS(targets, selectedIds);
+
+  QPS_RESUMEN_DATA = selectedIds
+    .sort((a,b)=> achieved[b]-achieved[a])
+    .map(id=> ({
+      name: TEAMS[id].name,
+      g: gepInputs[id].g, e: gepInputs[id].e, p: gepInputs[id].p,
+      pts: achieved[id]
+    }));
+
+  const anualSubset = {}; selectedIds.forEach(id=>{ if(ANUAL_BASE[id]) anualSubset[id]={...ANUAL_BASE[id]}; });
+  const promSubset = {}; selectedIds.forEach(id=>{ if(PROM_BASE[id]) promSubset[id]={...PROM_BASE[id]}; });
+
+  selectedIds.forEach(id=>{
+    const gained = achieved[id];
+    const played = QPS_TOTAL_PENDIENTES[id]; // asumimos que juega todos sus partidos pendientes
+    if(anualSubset[id]){ anualSubset[id].pts += gained; anualSubset[id].pj += played; }
+    if(promSubset[id]){ promSubset[id].pts += gained; promSubset[id].pj += played; }
+  });
+
+  const anualRows = buildRows(anualSubset, false);
+  const promRows = buildRows(promSubset, true);
+  let anualRelegIndex = -1, promLastId = null;
+  if(promRows.length) promLastId = promRows[promRows.length-1].id;
+  if(anualRows.length){
+    const anualLastId = anualRows[anualRows.length-1].id;
+    anualRelegIndex = (anualLastId === promLastId) ? anualRows.length-2 : anualRows.length-1;
+  }
+
+  renderTable('tabla-anual-qps', anualRows, false, anualRelegIndex, promLastId);
+  renderTable('tabla-promedios-qps', promRows, true, promRows.length ? promRows.length-1 : -1, null);
+
+  // nota de ajuste si lo pedido no coincide con lo logrado (por coherencia entre cruces)
+  const ajustes = selectedIds
+    .filter(id => achieved[id] !== targets[id])
+    .map(id => `${TEAMS[id].name}: pediste ${targets[id]}, quedó en ${achieved[id]}`);
+  const noteEl = document.getElementById('qpsAjusteNote');
+  if(ajustes.length){
+    noteEl.style.display = '';
+    noteEl.textContent = '⚠️ Se ajustaron algunos puntos para mantener coherencia entre los cruces directos: ' + ajustes.join(' · ');
+  } else {
+    noteEl.style.display = 'none';
+  }
+}
+
+document.getElementById('btnCalcQPS').addEventListener('click', function(){
+  calcQPS();
+
+  const btn = this;
+  const original = btn.textContent;
+  btn.classList.add('done');
+  btn.textContent = '✓ Tablas actualizadas — mirá abajo';
+  setTimeout(()=>{
+    btn.classList.remove('done');
+    btn.textContent = original;
+  }, 1600);
+});
+
+/* =========================================================================
+   MODO ADMINISTRADOR — tocar el título 5 veces seguidas (menos de 2s entre
+   toques) habilita el botón ✓ de "confirmar como jugado" en Partido a Partido.
+   No queda guardado entre sesiones: hay que repetir el gesto cada vez que
+   se abre el archivo, así los participantes normales nunca lo ven.
+   ========================================================================= */
+(function(){
+  let tapCount = 0;
+  let tapTimer = null;
+  const title = document.getElementById('papTitle');
+  if(!title) return;
+  title.addEventListener('click', ()=>{
+    tapCount++;
+    clearTimeout(tapTimer);
+    tapTimer = setTimeout(()=>{ tapCount = 0; }, 2000);
+    if(tapCount>=5){
+      tapCount = 0;
+      document.body.classList.toggle('admin-mode');
+    }
+  });
+})();
+</script>
+</body>
+</html>
